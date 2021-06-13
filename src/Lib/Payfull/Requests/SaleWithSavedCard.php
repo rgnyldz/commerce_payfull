@@ -1,0 +1,59 @@
+<?php
+
+namespace Drupal\commerce_payfull\Lib\Payfull\Requests;
+
+use Drupal\commerce_payfull\Lib\Payfull\Config;
+use Drupal\commerce_payfull\Lib\Payfull\Validate;
+use Drupal\commerce_payfull\Lib\Payfull\Responses\Responses;
+use Drupal\commerce_payfull\Lib\Payfull\Models\Customer;
+
+class SaleWithSavedCard extends Sale {
+
+    private $token;
+
+    public function __construct(Config $config)
+    {
+        parent::__construct($config);
+    }
+
+    public function setCustomerInfo(Customer $customerInfo)
+    {
+        $this->params['customer_firstname'] = $customerInfo->getName();
+        $this->params['customer_lastname']  = $customerInfo->getSurname();
+        $this->params['customer_email']     = $customerInfo->getEmail();
+        $this->params['customer_phone']     = $customerInfo->getPhoneNumber();
+        $this->params['customer_tc']        = $customerInfo->getTcNumber();
+    }
+
+
+    public function setToken($token)
+    {
+        Validate::token($token);
+        $this->token = $token;
+    }
+
+    public function getToken()
+    {
+        return $this->token;
+    }
+
+    protected function createRequest()
+    {
+        $this->params['payment_title']      = $this->getPaymentTitle();
+        $this->params['passive_data']       = $this->getPassiveData();
+        $this->params['currency']           = $this->getCurrency();
+        $this->params['total']              = $this->getTotal();
+        $this->params['installments']       = $this->getInstallment();
+        $this->params['bank_id']            = $this->getBankId();
+        $this->params['gateway']            = $this->getGateway();
+        $this->params['cc_token']           = $this->token;
+        parent::createRequest();
+    }
+
+    public function execute()
+    {
+        $this->createRequest();
+        $response = self::send($this->endpoint,$this->params);
+        return Responses::processResponse($response);
+    }
+}

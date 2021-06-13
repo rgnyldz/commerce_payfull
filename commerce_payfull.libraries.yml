@@ -1,0 +1,4 @@
+commerce-payfull:
+  version: 1.0
+  js:
+    js/commerce_payfull.js: {}

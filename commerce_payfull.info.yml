@@ -1,0 +1,7 @@
+name: Commerce Payfull
+type: module
+description: Commerce için Payfull entegrasyonu sağlar
+core_version_requirement: ^8 || ^9
+package: Commerce (custom)
+dependencies:
+  - commerce:commerce_payment

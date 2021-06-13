@@ -1,0 +1,5 @@
+services:
+  commerce_payfull.order_paid_subscriber:
+    class: Drupal\commerce_payfull\EventSubscriber\OrderPaidSubscriber
+    tags:
+      - { name: event_subscriber }

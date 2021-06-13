@@ -1,0 +1,114 @@
+<?php
+
+/**
+ * @file
+ * Contains commerce_payfull.module.
+ */
+
+use Drupal\Core\Routing\RouteMatchInterface;
+use Drupal\commerce_price\Price;
+use Drupal\commerce_order\Adjustment;
+
+/**
+ * Implements hook_help().
+ */
+function commerce_payfull_help($route_name, RouteMatchInterface $route_match)
+{
+  switch ($route_name) {
+      // Main module help for the commerce_payfull module.
+    case 'help.page.commerce_payfull':
+      $output = '';
+      $output .= '<h3>' . t('About') . '</h3>';
+      $output .= '<p>' . t('Commerce Payfull') . '</p>';
+      return $output;
+
+    default:
+  }
+}
+
+function commerce_payfull_pos_calculate_interest_via_order($order, $vade_farki = '0.00')
+{
+  $vade_farki = strval($vade_farki);
+  if (!empty($order)) {
+    if ($vade_farki == '0.00') {
+      return $order;
+    }
+    $items = $order->getItems();
+    $order_item_toplam_vade_farki = 0;
+    $hesaplanan_vade_farki = 0;
+    $paid_items = array();
+    $run = true;
+    $multipliers = array();
+    $order_multiplier = 0;
+    foreach ($items as $item) {
+      $order_item_total = $item->getAdjustedTotalPrice()->getNumber();
+      if ($order_item_total >= '0.00') {
+        $paid_items[] = $item;
+      }
+      $item_multiplier = $item->getAdjustedTotalPrice()->getNumber();
+      $multiplier = $item_multiplier;
+      $order_multiplier += $multiplier;
+      $multipliers[$item->id()] = $multiplier;
+      if (!$run) {
+        break;
+      }
+      $item->save();
+    }
+    if ($run) {
+      $item_count = count($paid_items);
+      $item_total = 0;
+      foreach ($paid_items as $key => $item) {
+        $order_item_total = $item->getAdjustedTotalPrice()->getNumber();
+        if ($item_count != ($key + 1)) {
+          if ($vade_farki - $hesaplanan_vade_farki  > 0.0099) {
+            $order_item_toplam_vade_farki = \Drupal\commerce_price\Calculator::round(strval($multipliers[$item->id()] * $vade_farki / $order_multiplier), 2);
+            $hesaplanan_vade_farki += $order_item_toplam_vade_farki;
+          }
+        } else {
+          $order_item_toplam_vade_farki = strval($vade_farki - $hesaplanan_vade_farki);
+        }
+        if ($order_item_toplam_vade_farki != '0') {
+          /*$adjustments = $item->getAdjustments();
+          $tax_adjustment = null;
+          foreach ($adjustments as $adjustment) {
+            if ($adjustment->getType() == 'tax') {
+              $tax_adjustment = $adjustment;
+              $item->removeAdjustment($adjustment);
+
+              break;
+            }
+          }
+          if ($tax_adjustment) {
+            $tax_amount = strval(
+              $item->getAdjustedTotalPrice()->getNumber() *
+                $tax_adjustment->getPercentage()
+            );
+            $new_tax = new Adjustment([
+              'type' => $tax_adjustment->getType(),
+              'label' => $tax_adjustment->getLabel(),
+              'amount' => new Price($tax_amount, 'TRY'),
+              'source_id' => $tax_adjustment->getSourceId(),
+              'percentage' => $tax_adjustment->getPercentage()
+            ]);
+            $item->addAdjustment($new_tax);
+          }*/
+          $commission_with_tax = \Drupal\commerce_price\Calculator::round(strval(($order_item_toplam_vade_farki)), 2);
+          $commission_adjustment = new Adjustment([
+            'type' => 'payfull_interest',
+            'label' => 'Vade Farkı',
+            'amount' => new Price(strval($commission_with_tax), 'TRY'),
+            'source_id' => 'interest',
+          ]);
+          $item->addAdjustment($commission_adjustment);
+        }
+        $item->save();
+        $item_total += $item->getAdjustedTotalPrice()->getNumber();
+      }
+      $order->recalculateTotalPrice();
+      return $order;
+    }
+    return $order;
+  }
+
+  return false;
+}

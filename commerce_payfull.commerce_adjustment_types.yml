@@ -1,0 +1,4 @@
+payfull_interest:
+ label: Vade Farkı
+ has_ui: true
+ weight: 0
